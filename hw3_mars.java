@@ -1,16 +1,14 @@
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Scanner;
-import java.util.TreeSet;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class hw3_mars extends Thread
 {
 	int index;
-	static ArrayList<Pair<Integer, Long>>[] readings;
+	static ArrayList<ArrayList<Pair<Integer, Long>>> readings;
 	static boolean cont = true;
 	static boolean onlyWait = false;
 	static final int ONE_MINUTE = 50;
@@ -22,14 +20,13 @@ public class hw3_mars extends Thread
 		index = i;
 	}
 
-	@SuppressWarnings("unchecked")
 	public static void main(String[] args) throws InterruptedException
 	{
 		Date date = new Date();
-		readings = (ArrayList<Pair<Integer, Long>>[]) new ArrayList[8];
+		readings = new ArrayList<ArrayList<Pair<Integer, Long>>>();
 		for (int i = 0; i < 8; i++)
 		{
-			readings[i] = new ArrayList<>();
+			readings.add(new ArrayList<>());
 		}
 		while (cont)
 		{
@@ -48,21 +45,21 @@ public class hw3_mars extends Thread
 
 	private void printToFile(int hour) throws IOException
 	{
-		TreeSet<Integer> highest = new TreeSet<>(), lowest = new TreeSet<>();
-		Pair<Integer, Long> lGap = readings[0].get((hour - 1) * 10),
-				rGap = readings[0].get((hour - 1) * 10);
+		ArrayList<Integer> highest = new ArrayList<>(), lowest = new ArrayList<>();
+		Pair<Integer, Long> lGap = readings.get(0).get((hour - 1) * 10),
+				rGap = readings.get(0).get((hour - 1) * 10);
 		int gap_max = 0;
 		for (int i = (hour - 1) * 60; i < hour * 50; i++)
 		{
 			for (int j = 0; j < 8; j++)
 			{
-				Pair<Integer, Long> lowest_gap = readings[j].get(i),
-						highest_gap = readings[j].get(i);
+				Pair<Integer, Long> lowest_gap = readings.get(j).get(i),
+						highest_gap = readings.get(j).get(i);
 				for (int h = 0; h < 10; h++)
 				{
-					if (lowest_gap.left > readings[j].get(i + h).left)
+					if (lowest_gap.left > readings.get(j).get(i + h).left)
 					{
-						lowest_gap = readings[j].get(i + h);
+						lowest_gap = readings.get(j).get(i + h);
 						if (highest_gap.left - lowest_gap.left > gap_max)
 						{
 							gap_max = highest_gap.left - lowest_gap.left;
@@ -70,38 +67,51 @@ public class hw3_mars extends Thread
 							rGap = highest_gap;
 						}
 					}
-					else if (highest_gap.left < readings[j].get(i + h).left)
+					else if (highest_gap.left < readings.get(j).get(i + h).left)
 					{
-						highest_gap = readings[j].get(i + h);
+						highest_gap = readings.get(j).get(i + h);
 					}
-					if (highest.size() < 10 || readings[j].get(i).left > highest.first())
+					if (highest.size() < 10)
 					{
-						highest.add(readings[j].get(i).left);
+						highest.add(readings.get(j).get(i).left);
+						Collections.sort(highest);
+						continue;
 					}
-					if (lowest.size() < 10 || readings[j].get(i).left < lowest.last())
+					if (lowest.size() < 10)
 					{
-						lowest.add(readings[j].get(i).left);
+						lowest.add(readings.get(j).get(i).left);
+						Collections.sort(lowest);
+						continue;
+					}
+					if (readings.get(j).get(i).left > highest.get(0))
+					{
+						highest.add(readings.get(j).get(i).left);
+						highest.remove(highest.get(0));
+						Collections.sort(highest);
+					}
+					if (readings.get(j).get(i).left < lowest.get(lowest.size() - 1))
+					{
+						lowest.add(readings.get(j).get(i).left);
+						Collections.sort(lowest);
+						lowest.remove(lowest.get(lowest.size() - 1));
+
 					}
 				}
 
 			}
 		}
-		File outFile = new File("out" + hour + ".txt");
-		outFile.createNewFile();
-		FileWriter out = new FileWriter(outFile);
+		System.out.print("Highest temps: ");
 		for (Integer a : highest)
-			out.write(a + " ");
-		out.write("\n");
+			System.out.print(a + "F ");
+		System.out.print("\nLowest temps: ");
 		for (Integer a : lowest)
-			out.write(a + " ");
-		out.write("\n");
-		out.write("start_time: " + lGap.right + " temp: " + lGap.left + "F\n");
-		out.flush();
-		out.close();
-	}
-
-	private void checkIn()
-	{
+			System.out.print(a + "F ");
+		System.out.print("\nLargest Gap:\n");
+		System.out.print("lowTemp_time: " + Math.floorDiv(lGap.right, ONE_MINUTE) + "m temp: "
+				+ lGap.left + "F\n");
+		System.out.print("highTemp_time: " + Math.floorDiv(rGap.right, ONE_MINUTE) + "m temp: "
+				+ rGap.left + "F\n");
+		System.out.flush();
 
 	}
 
@@ -109,7 +119,7 @@ public class hw3_mars extends Thread
 	{
 		if (h == 0) return false;
 		for (int i = 0; i < 8; i++)
-			if (readings[i].size() < 60 * h) return false;
+			if (readings.get(i).size() < 60 * h) return false;
 		return true;
 	}
 
@@ -132,10 +142,10 @@ public class hw3_mars extends Thread
 			}
 			if (onlyWait) continue;
 			Date date = new Date();
-			int reading = (int) (Math.random() * 170) - 100;
+			int reading = (int) (Math.random() * 171) - 100;
 			// System.out.println(index);
 			long curr_time = date.getTime();
-			readings[index].add(new Pair<Integer, Long>(reading, curr_time - start_time));
+			readings.get(index).add(new Pair<Integer, Long>(reading, curr_time - start_time));
 
 			if (index == 0 && printReady((int) ((curr_time - start_time) / (ONE_MINUTE * 60))))
 			{
@@ -150,20 +160,8 @@ public class hw3_mars extends Thread
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-
-				System.out.print("%d hour(s) have passed, would you like to continue(Y/N):");
-				System.out.flush();
-
-				String a = scan.next();
-
-				if (a.length() > 0 && a.charAt(0) == 'Y')
-				{
-					cont = true;
-					onlyWait = false;
-				}
-				else
-					cont = false;
-
+				cont = false;
+				return;
 			}
 
 		}
